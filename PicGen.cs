@@ -13,15 +13,50 @@ namespace mltd_img_gen
         static Page page;
         static PicGen()
         {
+            var downloadsFolder = Path.GetTempPath();
             var option = new BrowserFetcherOptions
             {
-                // Path = prodEnv == "true" ? "/home/site/wwwroot/.local-chrome" : "/home/fun4/Codes/mltd-img-gen/.local-chrome"
+                Path = downloadsFolder
             };
             var fetcher = new BrowserFetcher(option);
             fetcher.DownloadAsync(BrowserFetcher.DefaultRevision).Wait();
             var browser = Puppeteer.LaunchAsync(new LaunchOptions
             {
-                // ExecutablePath = $"{option.Path}/Linux-706915/chrome-linux/chrome",
+                ExecutablePath = fetcher.RevisionInfo(BrowserFetcher.DefaultRevision).ExecutablePath,
+                Headless = true,
+                Args = new[]
+                {
+                    !isProd ? "--proxy-server=winip:1080" : ""
+                }
+            }).Result;
+            page = browser.NewPageAsync().Result;
+            page.SetViewportAsync(new ViewPortOptions
+            {
+                Height = 750,
+                Width = 1300
+            }).Wait();
+        }
+        static bool isProd = Environment.GetEnvironmentVariable("DOTNET_ENV") == "prod";
+        static string PWD = Directory.GetCurrentDirectory();
+
+        [FunctionName("PicGen")]
+        public static async Task Run(
+            [QueueTrigger("html-queue")] string content,
+            ILogger log,
+            IBinder binder
+        )
+        {
+            log.LogInformation("start to process html content");
+            var downloadsFolder = Path.GetTempPath();
+            var option = new BrowserFetcherOptions
+            {
+                Path = downloadsFolder
+            };
+            var fetcher = new BrowserFetcher(option);
+            fetcher.DownloadAsync(BrowserFetcher.DefaultRevision).Wait();
+            var browser = Puppeteer.LaunchAsync(new LaunchOptions
+            {
+                ExecutablePath = fetcher.RevisionInfo(BrowserFetcher.DefaultRevision).ExecutablePath,
                 Headless = true,
                 Args = new[]
                 {
@@ -34,23 +69,11 @@ namespace mltd_img_gen
                 Height = 750,
                 Width = 1300
             }).Wait();
-        }
-
-        static string HTML_PATH = Path.Combine(Directory.GetCurrentDirectory(), "index.html");
-
-        [FunctionName("PicGen")]
-        public static async Task Run(
-            [QueueTrigger("html-queue")] string content,
-            ILogger log,
-            IBinder binder
-        )
-        {
-            log.LogInformation("start to process html content");
+            var location = Path.Combine(PWD, "index.html");
             var obj = JsonDocument.Parse(content).RootElement;
-            Console.WriteLine(HTML_PATH);
             var html = obj.GetProperty("src").GetString();
-            await File.WriteAllTextAsync(HTML_PATH, html);
-            await page.GoToAsync($"file://{HTML_PATH}", new NavigationOptions
+            await File.WriteAllTextAsync(location, html);
+            await page.GoToAsync($"file://{location}", new NavigationOptions
             {
                 Timeout = 5000,
                 WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
