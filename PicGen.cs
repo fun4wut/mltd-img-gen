@@ -37,7 +37,7 @@ namespace mltd_img_gen
             }).Wait();
         }
         static bool isProd = Environment.GetEnvironmentVariable("DOTNET_ENV") == "prod";
-        static string PWD = isProd ? "/home/site/wwwroot" : Directory.GetCurrentDirectory();
+        static string PWD = isProd ? "/home/site/wwwroot" : Directory.GetCurrentDirectory(); // hard code it
 
         [FunctionName("PicGen")]
         public static async Task Run(
