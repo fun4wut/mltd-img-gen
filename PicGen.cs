@@ -32,45 +32,23 @@ namespace mltd_img_gen
             page = browser.NewPageAsync().Result;
             page.SetViewportAsync(new ViewPortOptions
             {
-                Height = 750,
+                Height = 800,
                 Width = 1300
             }).Wait();
         }
         static bool isProd = Environment.GetEnvironmentVariable("DOTNET_ENV") == "prod";
-        static string PWD = Directory.GetCurrentDirectory();
+        static string PWD = isProd ? "/home/site/wwwroot" : Directory.GetCurrentDirectory();
 
         [FunctionName("PicGen")]
         public static async Task Run(
-            [QueueTrigger("html-queue")] string content,
+            [QueueTrigger("html-queue")] string context,
             ILogger log,
             IBinder binder
         )
         {
             log.LogInformation("start to process html content");
-            var downloadsFolder = Path.GetTempPath();
-            var option = new BrowserFetcherOptions
-            {
-                Path = downloadsFolder
-            };
-            var fetcher = new BrowserFetcher(option);
-            fetcher.DownloadAsync(BrowserFetcher.DefaultRevision).Wait();
-            var browser = Puppeteer.LaunchAsync(new LaunchOptions
-            {
-                ExecutablePath = fetcher.RevisionInfo(BrowserFetcher.DefaultRevision).ExecutablePath,
-                Headless = true,
-                Args = new[]
-                {
-                    "--proxy-server=winip:1080"
-                }
-            }).Result;
-            page = browser.NewPageAsync().Result;
-            page.SetViewportAsync(new ViewPortOptions
-            {
-                Height = 750,
-                Width = 1300
-            }).Wait();
             var location = Path.Combine(PWD, "index.html");
-            var obj = JsonDocument.Parse(content).RootElement;
+            var obj = JsonDocument.Parse(context).RootElement;
             var html = obj.GetProperty("src").GetString();
             await File.WriteAllTextAsync(location, html);
             await page.GoToAsync($"file://{location}", new NavigationOptions
