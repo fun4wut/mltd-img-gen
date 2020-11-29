@@ -57,7 +57,11 @@ namespace mltd_img_gen
                 WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
             });
             var root = await page.QuerySelectorAsync(".root");
-            var img = await root.ScreenshotStreamAsync();
+            var img = await root.ScreenshotStreamAsync(new ScreenshotOptions
+            {
+                Type = ScreenshotType.Jpeg,
+                Quality = 70
+            });
             var dt = DateTime.Parse(obj.GetProperty("time").GetString()).ToUniversalTime();
             using (var imgStream = binder.Bind<Stream>(
                 new BlobAttribute($"mltd-img/{dt.ToString("yyyy-MM-ddTHH-mmZ")}.png", FileAccess.Write))
