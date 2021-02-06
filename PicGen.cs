@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
+using Microsoft.WindowsAzure.Storage.Blob;
 using PuppeteerSharp;
 using System.Text.Json;
 namespace mltd_img_gen
@@ -57,17 +58,22 @@ namespace mltd_img_gen
                 WaitUntil = new[] { WaitUntilNavigation.Networkidle2 }
             });
             var root = await page.QuerySelectorAsync(".root");
-            var img = await root.ScreenshotStreamAsync(new ScreenshotOptions
+
+            var imgStream = await root.ScreenshotStreamAsync(new ScreenshotOptions
             {
                 Type = ScreenshotType.Jpeg,
-                Quality = 70
+                Quality = 100
             });
             var dt = DateTime.Parse(obj.GetProperty("time").GetString()).ToUniversalTime();
-            using (var imgStream = binder.Bind<Stream>(
-                new BlobAttribute($"mltd-img/{dt.ToString("yyyy-MM-ddTHH-mmZ")}.png", FileAccess.Write))
+            var filePath = $"mltd-img/{dt.ToString("yyyy-MM-ddTHH-mmZ")}.png";
+            using (var blobTask = binder.BindAsync<CloudBlockBlob>(
+                new BlobAttribute(filePath, FileAccess.Write))
             )
             {
-                await img.CopyToAsync(imgStream);
+                var blob = await blobTask;
+                blob.Properties.ContentType = "image/jpg";
+                await blob.UploadFromStreamAsync(imgStream);
+                log.LogInformation($"screenshot done, img url: {blob.Uri}");
             }
         }
     }
